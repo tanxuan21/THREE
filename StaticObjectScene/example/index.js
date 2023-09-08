@@ -6,16 +6,21 @@ import {
 } from './StaticObjectScence/StaticObjectScence.js';
 
 const scene = new StaticObjectScence(
-    undefined,
+    document.querySelector(".con1"),
     (() => {
         const meshGroup = new THREE.Group();
-        const cube = new THREE.Mesh(
-            new THREE.BoxGeometry(20, 20, 20),
-            new THREE.MeshPhongMaterial({
-                color: 0xff00ff,
-            })
-        );
-        meshGroup.add(cube);
+        for (let i = 0; i < 10; i++) {
+            const cube = new THREE.Mesh(
+                new THREE.BoxGeometry(20, 20, 20),
+                new THREE.MeshPhongMaterial({
+                    color: 0xff00ff,
+                })
+            );
+            meshGroup.add(cube);
+            cube.position.set(50 * i - 250, 20, 0);
+            cube.name = `Cube${i}`;
+        }
+
         return meshGroup;
     })(),
     (function () {
@@ -37,26 +42,28 @@ const scene = new StaticObjectScence(
         pointLight.shadow.radius = 3;
         return lightGroup;
     })(),
-    (_this)=>{
-        _this.objectGroup.children.forEach((mesh)=>{
+    (_this) => {
+        _this.objectGroup.children.forEach((mesh) => {
             mesh.rotateX(0.03);
         })
     },
     (_this) => {
         console.log("执行用户初始化.");
         console.log(_this);
-        _this.renderQueue.push((_this)=>{
-            _this.objectGroup.children.forEach((mesh)=>{
+        _this.renderQueue.push((_this) => {
+            _this.objectGroup.children.forEach((mesh) => {
                 mesh.rotateZ(0.2);
             })
         })
-    },{
-        showStats:true,
-        pickmode:0,
-        pickAction:(mesh)=>{
-            mesh.children[0].element.classList.add( "card-selected");
-            mesh.rotateY(Math.PI/3)
-        }
+    }, {
+        showStats: true,
+        pickmode: 0,
+        // pickAction: (mesh) => {
+        //     mesh.forEach((item) => {
+        //         item.rotateY(Math.PI / 3);
+        //     });
+        // },
+        cardmode: 0,
     }
 )
 

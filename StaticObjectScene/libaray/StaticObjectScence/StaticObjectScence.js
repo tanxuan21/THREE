@@ -11,12 +11,23 @@ import {
 import {
     CSS2DRenderer
 } from 'three/addons/renderers/CSS2DRenderer.js';
+import {
+    EffectComposer
+} from 'three/addons/postprocessing/EffectComposer.js';
+// 引入渲染器通道RenderPass
+import {
+    RenderPass
+} from 'three/addons/postprocessing/RenderPass.js';
+// 引入OutlinePass通道
+import {
+    OutlinePass
+} from 'three/addons/postprocessing/OutlinePass.js';
 
 // 引入dat.gui.js的一个类GUI
 
 import Stats from 'three/addons/libs/stats.module.js';
 class StaticObjectScence {
-    constructor(elment, obj = void 0, light = void 0, animation = () => {},userInit = ()=>{}, option = {},) {
+    constructor(elment, obj = void 0, light = void 0, animation = () => {}, userInit = () => {}, option = {}, ) {
         this.element = elment; // 场景挂载的元素
         if (!elment) {
             const body = document.querySelector("body");
@@ -46,10 +57,11 @@ class StaticObjectScence {
             pickmode: option.pickmode === undefined ? 0 : option.pickmode, // 选择模式.为0只选中第一个.为其他值选中与一串
             pickAction: option.pickAction === undefined ? () => {} : option.pickAction, // 选择后的动作.注意,pickmode是0传递一个mesh,pickmode是其他值传递一个数组.
             createMeshCard: option.createMeshCard, // 创建mesh的标注卡片.参数是mesh本身.
+            cardmode: option.cardmode === undefined ? 0 : option.cardmode,
         }
-
         this.animation = animation; // 动画函数
 
+        this.selectObjectGroup = {}; // 被选中的物体对象.键是物体ID,值是物体对象本身.
         this.objectGroup = obj; // 场景物体组
         this.lightGroup = light; // 场景灯光组
         this.helperGroup = new THREE.Group(); // 辅助对象组
@@ -72,6 +84,7 @@ class StaticObjectScence {
         this.helperGroup
         this.initHelper();
         this.initRenderQueue();
+        this.initEffectComposer();
         this.userInit(this);
     }
     initRenderQueue() {
@@ -89,6 +102,19 @@ class StaticObjectScence {
         if (this.animation) {
             this.renderQueue.push(this.animation);
         }
+    }
+    initEffectComposer() {
+        this.composer = new EffectComposer(this.renderer);
+        this.composer.addPass(new RenderPass(this.scene, this.camera));
+        const outLinePass = new OutlinePass(new THREE.Vector2(this.width, this.height), this.scene, this.camera);
+        // 一个模型对象
+        this.composer.addPass(outLinePass);
+        this.renderQueue.push((_this) => {
+            _this.composer.render()
+        });
+        // 多个模型对象
+        // outlinePass.selectedObjects = [mesh1, mesh2, group];
+
     }
     initScence() {
         this.scene = new THREE.Scene();
@@ -141,13 +167,15 @@ class StaticObjectScence {
             // 添加物体卡片
             for (let i = 0; i < this.objectGroup.children.length; i++) {
                 StaticObjectScence.AddCard(this.objectGroup.children[i], this.option.createMeshCard);
+                this.objectGroup.children[i]._selected = false; // 添加属性 是否选中
+
             }
             this.scene.add(this.objectGroup);
         }
 
     }
     initLight() {
-        
+
         if (this.lightGroup) {
             this.scene.add(this.lightGroup)
         } else {
@@ -161,6 +189,7 @@ class StaticObjectScence {
         });
         this.CSS2Renderer = new CSS2DRenderer(); // dom标签渲染器
         //渲染器使用阴影
+
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap // PCF柔软阴影贴图
         //渲染器尺寸与挂载到dom
@@ -238,12 +267,61 @@ class StaticObjectScence {
         const pickedObj = _this.picker.intersectObjects((_this.objectGroup === undefined || _this.objectGroup === null) ? [] : _this.objectGroup.children, false);
         if (pickedObj.length) {
             if (_this.option.pickmode === 0) {
-                _this.option.pickAction(pickedObj[0].object);
+                this.selectMesh(pickedObj[0].object);
+                try {
+                    _this.option.pickAction(pickedObj[0].object);
+                } catch (e) {
+                    if (e instanceof TypeError) {
+                        console.warn("REMIND: param is a THREE.Mesh array.please check your code");
+                    }
+                    throw e;
+                }
             } else {
-                _this.option.pickAction(pickedObj);
+                // 重映射数组.并全部设置.
+                pickedObj.forEach((item, index) => {
+                    pickedObj[index] = item.object;
+                    this._setIsSelected(item.object, !item.object._selected);
+                })
+                try {
+                    _this.option.pickAction(pickedObj);
+                } catch (error) {
+                    if (error instanceof TypeError) {
+                        console.warn("REMIND: param is a THREE.Mesh object.please check your code");
+                    }
+                    throw error;
+                }
+
             }
         }
 
+    }
+    // 选择
+    _setIsSelected(mesh, boolean) {
+        if (boolean) {
+            mesh.children[0].element.classList.add("card-selected");
+            mesh._selected = true;
+            this.selectObjectGroup[mesh.id] = mesh;
+        } else {
+            mesh.children[0].element.classList.remove("card-selected");
+            mesh._selected = false;
+            delete this.selectObjectGroup[mesh.id];
+        }
+    }
+    selectMesh(mesh) {
+        if (this.option.cardmode === 0) { // 只有一个
+            if (Object.keys(this.selectObjectGroup).length) { // 选中不止一个
+                if (this.selectObjectGroup[mesh.id] !== mesh) { // 点击的对象不是已经被激活的
+                    // 删除所有激活样式
+                    for (let item in this.selectObjectGroup) {
+                        this._setIsSelected(this.selectObjectGroup[item], false);
+                    }
+                    this.selectObjectGroup = {};
+                }
+            }
+        } else if (this.option.cardmode === 1) { // 可以有多个
+
+        }
+        this._setIsSelected(mesh, !mesh._selected);
     }
     /* 静态方法:为某元素添加卡片标签.参数:
     /  @param {mesh} THREE网格对象

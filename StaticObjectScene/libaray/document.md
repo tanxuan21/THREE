@@ -42,8 +42,10 @@ html元素可以用js创建,也可以通过选择器选择.默认在`body`上.
 |  background_color  |   6位16进制数    |                                        <font color='#909090' size=2>背景颜色</font>                                        |  0xffffff  |
 | background_opacity |  Number^[0,1]^   |                                       <font color='#909090' size=2>背景透明度</font>                                       |     0      |
 |      pickmode      | Number^{-1,0,1}^ |               <font color='#909090' size=2>选择模式.为-1不选择;为0不选中被遮挡的物体;为1选中所有物体</font>                |     0      |
-|     pickAction     |     function     | <font color='#909090' size=2>选择后的动作.注意,pickmode是0传递一个THREE.mesh,pickmode是 他值传递一个THREE.mesh数组.</font> | ( ) => { } |
+|     pickAction     |     function     | <font color='#909090' size=2>选择后的动作.注意,pickmode是0传递一个THREE.mesh,pickmode是 他值传递一个THREE.Mesh数组.</font> | ( ) => { } |
+|cardmode|Number^{0,1}^|<font color='#909090' size=2>为0,整个场景只有一个物体有卡片,再次点击关闭卡片;为1允许多个物体有卡片,再次点击关闭卡片.(当pickmode是1时此属性为1.)</font>|0|
 |   createMeshCard   |     function     |                           <font color='#909090' size=2>创建mesh的标注卡片.参数是mesh本身.</font>                           | ( ) => { } |
+
         
 主要需要你书写的就是上面的几个函数.
 下面给出它们的模板:
