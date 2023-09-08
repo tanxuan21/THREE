@@ -1,0 +1,50 @@
+/* ui层 */
+.ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+}
+/* 卡片 */
+.card {
+    opacity: .7;
+    background: #ffffee;
+    border-radius: 2px;
+    color: #000;
+    font-size: small;
+    position: absolute;
+    top: -40px;
+    padding: 1px 5px;
+    display: none;
+
+}
+
+.card-selected {
+    display: block;
+}
+
+.card span {
+    transform: scale(.8);
+    display: block;
+}
+
+.card:hover {
+    background: #bbbb88;
+    color: #fff;
+}
+.card:hover::after{
+    background: #bbbb88;
+}
+.card::after {
+    content: "";
+    position: absolute;
+    display: block;
+    width: 10px;
+    height: 10px;
+    background: #ffffee;
+    bottom: -5px;
+    left: calc(50% - 5px);
+    z-index: -1;
+    transform: rotate(45deg);
+
+}
