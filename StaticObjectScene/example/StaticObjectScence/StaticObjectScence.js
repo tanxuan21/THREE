@@ -59,6 +59,7 @@ class StaticObjectScence {
             createMeshCard: option.createMeshCard, // 创建mesh的标注卡片.参数是mesh本身.
             cardmode: option.cardmode === undefined ? 0 : option.cardmode,
         }
+        this.option.cardmode = this.option.pickmode === 1 ? 1 : this.option.cardmode;
         this.animation = animation; // 动画函数
 
         this.selectObjectGroup = {}; // 被选中的物体对象.键是物体ID,值是物体对象本身.
@@ -106,15 +107,17 @@ class StaticObjectScence {
     initEffectComposer() {
         this.composer = new EffectComposer(this.renderer);
         this.composer.addPass(new RenderPass(this.scene, this.camera));
+
         const outLinePass = new OutlinePass(new THREE.Vector2(this.width, this.height), this.scene, this.camera);
+        outLinePass.name = "outlinePass-default"; // 指定名称.防止用户添加多个后期效果
         // 一个模型对象
         this.composer.addPass(outLinePass);
         this.renderQueue.push((_this) => {
             _this.composer.render()
         });
-        // 多个模型对象
-        // outlinePass.selectedObjects = [mesh1, mesh2, group];
 
+        // 多个模型对象
+        outLinePass.selectedObjects = Object.values(this.selectObjectGroup);
     }
     initScence() {
         this.scene = new THREE.Scene();
@@ -253,21 +256,52 @@ class StaticObjectScence {
         };
         // 绑定鼠标事件.
         ((_this) => {
-            _this.element.addEventListener("click", function (event) {
+            _this.element.addEventListener("click", function (event) {});
+            var isClick = true;
+            function _click(event, _this) {
                 _this.mouse.x = event.offsetX / _this.width * 2 - 1;
                 _this.mouse.y = -event.offsetY / _this.height * 2 + 1;
                 _this.pick(_this);
+            }
+            function _handleClick(event){
+                _click(event,_this);
+            }
+            _this.element.addEventListener("mousedown", (event) => {
+                _this.element.addEventListener("mouseup", _handleClick);
+                let frame = 0;
+                const timer = setInterval(function () {
+                    isClick = true;
+                    if (frame > 0) {
+                        _this.element.removeEventListener("mouseup",_handleClick);
+                        isClick = false;
+                        clearInterval(timer);
+                        frame = 0;
+                    }
+                    frame++;
+
+                }, 50);
             })
+
         })(this);
         // 选择器
         this.picker = new THREE.Raycaster();
     }
+
     pick(_this) {
+        // 获取选中模型
         _this.picker.setFromCamera(new THREE.Vector2(_this.mouse.x, _this.mouse.y), _this.camera);
         const pickedObj = _this.picker.intersectObjects((_this.objectGroup === undefined || _this.objectGroup === null) ? [] : _this.objectGroup.children, false);
+        // 获取后处理的轮廓样式对象
+        let outLinePass;
+        (_this.composer.passes).forEach((item) => {
+            if (item.name === "outlinePass-default") {
+                outLinePass = item;
+            }
+        })
         if (pickedObj.length) {
             if (_this.option.pickmode === 0) {
                 this.selectMesh(pickedObj[0].object);
+                //outLinePass.selectedObjects = [pickedObj[0].object];
                 try {
                     _this.option.pickAction(pickedObj[0].object);
                 } catch (e) {
@@ -280,8 +314,9 @@ class StaticObjectScence {
                 // 重映射数组.并全部设置.
                 pickedObj.forEach((item, index) => {
                     pickedObj[index] = item.object;
-                    this._setIsSelected(item.object, !item.object._selected);
+                    this.selectMesh(pickedObj[index]);
                 })
+
                 try {
                     _this.option.pickAction(pickedObj);
                 } catch (error) {
@@ -292,8 +327,14 @@ class StaticObjectScence {
                 }
 
             }
+            outLinePass.selectedObjects = Object.values(_this.selectObjectGroup);
+        } else {
+            outLinePass.selectedObjects = [];
+            for (let item in this.selectObjectGroup) {
+                _this._setIsSelected(this.selectObjectGroup[item], false);
+            }
+            _this.selectObjectGroup = {};
         }
-
     }
     // 选择
     _setIsSelected(mesh, boolean) {

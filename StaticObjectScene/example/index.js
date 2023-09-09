@@ -63,7 +63,7 @@ const scene = new StaticObjectScence(
         //         item.rotateY(Math.PI / 3);
         //     });
         // },
-        cardmode: 0,
+        cardmode: 1,
     }
 )
 
