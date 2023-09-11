@@ -1,6 +1,9 @@
 // 静态物体场景
 import * as THREE from 'three';
 import {
+    EXRLoader
+} from 'three/addons/loaders/EXRLoader.js';
+import {
     OrbitControls
 } from 'three/addons/controls/OrbitControls.js';
 // 引入CSS2模型对象CSS2DObject
@@ -11,21 +14,13 @@ import {
 import {
     CSS2DRenderer
 } from 'three/addons/renderers/CSS2DRenderer.js';
-import {
-    EffectComposer
-} from 'three/addons/postprocessing/EffectComposer.js';
-// 引入渲染器通道RenderPass
-import {
-    RenderPass
-} from 'three/addons/postprocessing/RenderPass.js';
-// 引入OutlinePass通道
-import {
-    OutlinePass
-} from 'three/addons/postprocessing/OutlinePass.js';
 
-// 引入dat.gui.js的一个类GUI
-
+import * as AfterEffect from './AfterEffect.js';
 import Stats from 'three/addons/libs/stats.module.js';
+import {
+    getOptionFromUser,
+    defaultOption
+} from './untils.js';
 class StaticObjectScence {
     constructor(elment, obj = void 0, light = void 0, animation = () => {}, userInit = () => {}, option = {}, ) {
         this.element = elment; // 场景挂载的元素
@@ -43,22 +38,9 @@ class StaticObjectScence {
         this.width = this.element.clientWidth;
         this.height = this.element.clientHeight;
         this.userInit = userInit;
-        this.option = { // 场景选项卡
-            showStats: option.showStats === undefined ? false : option.showStats, // 显示性能卡牌
-            GUI: option.GUI ? option.GUI : () => {}, // GUI
-            hightQualityRender: option.hightQualityRender === undefined ? true : option.hightQualityRender, // 高质量渲染
-            allowPick: option.allowPick === undefined ? true : option.allowPick, // 允许选中物体
-            openAxesHelper: option.openAxesHelper === undefined ? false : option.openAxesHelper, // 打开坐标显示器
-            showland: option.showland === undefined ? true : option.showland, // 地面默认打开
-            landTexture: option.landTexture === undefined ?
-                (new THREE.TextureLoader()).load("data:image/jpeg;base64,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") : option.landTexture, // 默认加载棋盘格地面.
-            background_color: option.background_color === undefined ? 0x000000 : option.background_color, // 背景颜色
-            background_opacity: option.background_opacity === undefined ? 0 : option.background_opacity, // 背景透明度
-            pickmode: option.pickmode === undefined ? 0 : option.pickmode, // 选择模式.为0只选中第一个.为其他值选中与一串
-            pickAction: option.pickAction === undefined ? () => {} : option.pickAction, // 选择后的动作.注意,pickmode是0传递一个mesh,pickmode是其他值传递一个数组.
-            createMeshCard: option.createMeshCard, // 创建mesh的标注卡片.参数是mesh本身.
-            cardmode: option.cardmode === undefined ? 0 : option.cardmode,
-        }
+        // 通过用户选项设置本类选项
+        this.option = getOptionFromUser(option, defaultOption);
+        this.HDR = undefined;
         this.option.cardmode = this.option.pickmode === 1 ? 1 : this.option.cardmode;
         this.animation = animation; // 动画函数
 
@@ -66,8 +48,8 @@ class StaticObjectScence {
         this.objectGroup = obj; // 场景物体组
         this.lightGroup = light; // 场景灯光组
         this.helperGroup = new THREE.Group(); // 辅助对象组
-
-        this.init(); // 初始化THREE对象
+        this.init();
+        // 初始化THREE对象
         // console.log(this);
     }
     init() {
@@ -91,7 +73,7 @@ class StaticObjectScence {
     initRenderQueue() {
         // 渲染队列
         this.renderQueue = [(_this) => {
-            _this.renderer.render(_this.scene, _this.camera);
+            _this.composer.render();
         }, (_this) => {
             _this.CSS2Renderer.render(_this.scene, _this.camera);
         }];
@@ -105,40 +87,72 @@ class StaticObjectScence {
         }
     }
     initEffectComposer() {
-        this.composer = new EffectComposer(this.renderer);
-        this.composer.addPass(new RenderPass(this.scene, this.camera));
+        this.composer = new AfterEffect.EffectComposer(this.renderer); // 后处理对象
 
-        const outLinePass = new OutlinePass(new THREE.Vector2(this.width, this.height), this.scene, this.camera);
-        outLinePass.name = "outlinePass-default"; // 指定名称.防止用户添加多个后期效果
+        this.composer.addPass(new AfterEffect.RenderPass(this.scene, this.camera)); // 第一个渲染管线--渲染
+        
+        this.outLinePass = new AfterEffect.OutlinePass(new THREE.Vector2(this.width, this.height), this.scene, this.camera);
         // 一个模型对象
-        this.composer.addPass(outLinePass);
-        this.renderQueue.push((_this) => {
-            _this.composer.render()
-        });
+        if (this.option.pickShowoutline) {
+            this.composer.addPass(this.outLinePass);
+        }
+        // const effectColorSpaceConversion = new ShaderPass(GammaCorrectionShader);
+        // this.composer.addPass(effectColorSpaceConversion);
+        // const effectFXAA = new ShaderPass(FXAAShader);
+        // effectFXAA.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
+        // this.composer.addPass(effectFXAA);
 
-        // 多个模型对象
-        outLinePass.selectedObjects = Object.values(this.selectObjectGroup);
+        // const glitchPass = new GlitchPass();
+        // this.composer.addPass(glitchPass);
+
+        this.composer.addPass(new AfterEffect.OutputPass());
+
+        //=========
+        //模型描边颜色，默认白色         
+        this.outLinePass.visibleEdgeColor.set(this.option.outLine_option.visibleEdgeColor);
+        this.outLinePass.edgeThickness = this.option.outLine_option.edgeThickness;
+        this.outLinePass.edgeStrength = this.option.outLine_option.edgeStrength;
+        this.outLinePass.pulsePeriod = this.option.outLine_option.pulsePeriod;
+        this.outLinePass.selectedObjects = Object.values(this.selectObjectGroup);
+    }
+    // 静态方法:为物体设置高质量物理光照渲染属性
+    static setMeshHightQualityRender(mesh) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.material.needsUpdate = true;
+        mesh.material.shadowSide = 1;
     }
     initScence() {
         this.scene = new THREE.Scene();
         // 默认添加地面
 
         if (this.option.showland) {
-            const land = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshLambertMaterial({
+            const land = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshPhysicalMaterial({
                 color: 0xffffff,
                 side: THREE.DoubleSide, //两面可见
                 shadowSide: THREE.BackSide,
                 map: this.option.landTexture,
+                roughness:0.2,
+                
             }));
             land.rotateX(-Math.PI / 2);
             land.receiveShadow = true;
             land.castShadow = true;
+            land.material.envMap = this.HDR;
+            land.material.needsUpdate = true;
             this.environmentGroup = new THREE.Group();
             this.environmentGroup.name = "environmentGroup";
             this.environmentGroup.add(land);
             this.scene.add(this.environmentGroup);
         }
-
+        // 加载HDR贴图
+        if (this.option.HDRurl) {
+            const texture = new EXRLoader().load(this.option.HDRurl, function (texture) {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+            });
+            this.scene.background = texture;
+            this.scene.environment = texture;
+        }
 
     }
     initCamera() {
@@ -171,6 +185,11 @@ class StaticObjectScence {
             for (let i = 0; i < this.objectGroup.children.length; i++) {
                 StaticObjectScence.AddCard(this.objectGroup.children[i], this.option.createMeshCard);
                 this.objectGroup.children[i]._selected = false; // 添加属性 是否选中
+                // 接受投影
+                this.objectGroup.children[i].castShadow = true;
+                this.objectGroup.children[i].receiveShadow = true;
+                // 更新材质
+                this.objectGroup.children[i].material.needsUpdate = true;
 
             }
             this.scene.add(this.objectGroup);
@@ -190,11 +209,16 @@ class StaticObjectScence {
         this.renderer = new THREE.WebGLRenderer({
             alpha: true, // 为了设置背景颜色
         });
+        // 透明背景
+        this.renderer.setClearColor(this.option.background_color, this.option.background_opacity);
+        this.renderer.setClearAlpha(this.option.background_opacity);
         this.CSS2Renderer = new CSS2DRenderer(); // dom标签渲染器
         //渲染器使用阴影
-
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap // PCF柔软阴影贴图
+        // 曝光
+        this.renderer.toneMapping = 4;
+        this.renderer.toneMappingExposure = 1;
         //渲染器尺寸与挂载到dom
         this.renderer.setSize(this.width, this.height);
         this.CSS2Renderer.setSize(this.width, this.height);
@@ -221,9 +245,7 @@ class StaticObjectScence {
                 _this.height = _this.element.clientHeight;
             })
         })(this);
-        // 透明背景
-        this.renderer.setClearColor(this.option.background_color, this.option.background_opacity);
-        this.renderer.setClearAlpha(this.option.background_opacity);
+
     }
     initHelper() {
         if (this.option.showStats) {
@@ -239,7 +261,11 @@ class StaticObjectScence {
             this.helperGroup.add(this.axesHelper);
             this.scene.add(this.helperGroup);
         }
-        this.option.GUI(this)
+        const innergui = this.option.GUI(this);
+        innergui.domElement.style.position = "absolute";
+
+        innergui.domElement.classList.add("gui");
+        this.element.appendChild(innergui.domElement);
     }
     Antialias() {
         this.renderer.antialias = true;
@@ -258,13 +284,15 @@ class StaticObjectScence {
         ((_this) => {
             _this.element.addEventListener("click", function (event) {});
             var isClick = true;
+
             function _click(event, _this) {
                 _this.mouse.x = event.offsetX / _this.width * 2 - 1;
                 _this.mouse.y = -event.offsetY / _this.height * 2 + 1;
                 _this.pick(_this);
             }
-            function _handleClick(event){
-                _click(event,_this);
+
+            function _handleClick(event) {
+                _click(event, _this);
             }
             _this.element.addEventListener("mousedown", (event) => {
                 _this.element.addEventListener("mouseup", _handleClick);
@@ -272,14 +300,14 @@ class StaticObjectScence {
                 const timer = setInterval(function () {
                     isClick = true;
                     if (frame > 0) {
-                        _this.element.removeEventListener("mouseup",_handleClick);
+                        _this.element.removeEventListener("mouseup", _handleClick);
                         isClick = false;
                         clearInterval(timer);
                         frame = 0;
                     }
                     frame++;
 
-                }, 50);
+                }, this.option.pickspeed);
             })
 
         })(this);
@@ -291,17 +319,10 @@ class StaticObjectScence {
         // 获取选中模型
         _this.picker.setFromCamera(new THREE.Vector2(_this.mouse.x, _this.mouse.y), _this.camera);
         const pickedObj = _this.picker.intersectObjects((_this.objectGroup === undefined || _this.objectGroup === null) ? [] : _this.objectGroup.children, false);
-        // 获取后处理的轮廓样式对象
-        let outLinePass;
-        (_this.composer.passes).forEach((item) => {
-            if (item.name === "outlinePass-default") {
-                outLinePass = item;
-            }
-        })
+
         if (pickedObj.length) {
             if (_this.option.pickmode === 0) {
                 this.selectMesh(pickedObj[0].object);
-                //outLinePass.selectedObjects = [pickedObj[0].object];
                 try {
                     _this.option.pickAction(pickedObj[0].object);
                 } catch (e) {
@@ -314,11 +335,14 @@ class StaticObjectScence {
                 // 重映射数组.并全部设置.
                 pickedObj.forEach((item, index) => {
                     pickedObj[index] = item.object;
-                    this.selectMesh(pickedObj[index]);
+                });
+                const pickedObj_noRepeat = Array.from(new Set(pickedObj));
+                // 不知道为什么.选择外部gltf模型会出现重复选择的情况.可能跟模型有关.不管怎么样,直接去重即可.
+                pickedObj_noRepeat.forEach((item, index) => {
+                    this.selectMesh(pickedObj_noRepeat[index]);
                 })
-
                 try {
-                    _this.option.pickAction(pickedObj);
+                    _this.option.pickAction(pickedObj_noRepeat);
                 } catch (error) {
                     if (error instanceof TypeError) {
                         console.warn("REMIND: param is a THREE.Mesh object.please check your code");
@@ -327,9 +351,9 @@ class StaticObjectScence {
                 }
 
             }
-            outLinePass.selectedObjects = Object.values(_this.selectObjectGroup);
-        } else {
-            outLinePass.selectedObjects = [];
+            this.outLinePass.selectedObjects = Object.values(_this.selectObjectGroup);
+        } else { // 清空选择
+            this.outLinePass.selectedObjects = [];
             for (let item in this.selectObjectGroup) {
                 _this._setIsSelected(this.selectObjectGroup[item], false);
             }
@@ -339,6 +363,7 @@ class StaticObjectScence {
     // 选择
     _setIsSelected(mesh, boolean) {
         if (boolean) {
+
             mesh.children[0].element.classList.add("card-selected");
             mesh._selected = true;
             this.selectObjectGroup[mesh.id] = mesh;
@@ -394,6 +419,7 @@ class StaticObjectScence {
         card.name = name;
         mesh.add(card);
     }
+
     render() {
         ((_this) => {
             const render = () => {
