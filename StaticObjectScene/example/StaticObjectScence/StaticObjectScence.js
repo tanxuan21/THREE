@@ -15,42 +15,51 @@ import {
     CSS2DRenderer
 } from 'three/addons/renderers/CSS2DRenderer.js';
 
-import * as AfterEffect from './AfterEffect.js';
+import * as AfterEffect from './untils/AfterEffect.js';
 import Stats from 'three/addons/libs/stats.module.js';
 import {
     getOptionFromUser,
     defaultOption
-} from './untils.js';
+} from './untils/untils.js';
+
+
+
+
+
 class StaticObjectScence {
     constructor(elment, obj = void 0, light = void 0, animation = () => {}, userInit = () => {}, option = {}, ) {
-        this.element = elment; // 场景挂载的元素
+        //===========场景挂载的元素=============
+        this.element = elment;
         if (!elment) {
             const body = document.querySelector("body");
             this.element = body;
             body.style.height = "100vh";
             body.style.width = "100vw";
-        } else { // 如果是有元素的,记得设置定位为相对定位
+        } else { // 如果是有元素的,设置定位为相对定位
             if (getComputedStyle(this.element).position !== "relative") {
                 this.element.style.position = "relative";
             }
-
         }
+
+        // 私有属性
         this.width = this.element.clientWidth;
         this.height = this.element.clientHeight;
-        this.userInit = userInit;
+        this.HDR = undefined;
+
+
         // 通过用户选项设置本类选项
         this.option = getOptionFromUser(option, defaultOption);
-        this.HDR = undefined;
+        // 选项逻辑处理
         this.option.cardmode = this.option.pickmode === 1 ? 1 : this.option.cardmode;
-        this.animation = animation; // 动画函数
 
+        this.userInit = userInit;
+        this.animation = animation; // 动画函数
         this.selectObjectGroup = {}; // 被选中的物体对象.键是物体ID,值是物体对象本身.
         this.objectGroup = obj; // 场景物体组
         this.lightGroup = light; // 场景灯光组
         this.helperGroup = new THREE.Group(); // 辅助对象组
+
         this.init();
-        // 初始化THREE对象
-        // console.log(this);
     }
     init() {
         this.initScence();
@@ -58,13 +67,14 @@ class StaticObjectScence {
         this.initMesh();
         this.initCamera();
         this.initRender();
+        // 高质量渲染
         if (this.option.hightQualityRender) {
             this.Antialias();
         }
+        // 是否选择物体
         if (this.option.pickmode !== -1) {
             this.PickerInit();
         }
-        this.helperGroup
         this.initHelper();
         this.initRenderQueue();
         this.initEffectComposer();
@@ -90,7 +100,7 @@ class StaticObjectScence {
         this.composer = new AfterEffect.EffectComposer(this.renderer); // 后处理对象
 
         this.composer.addPass(new AfterEffect.RenderPass(this.scene, this.camera)); // 第一个渲染管线--渲染
-        
+
         this.outLinePass = new AfterEffect.OutlinePass(new THREE.Vector2(this.width, this.height), this.scene, this.camera);
         // 一个模型对象
         if (this.option.pickShowoutline) {
@@ -132,8 +142,8 @@ class StaticObjectScence {
                 side: THREE.DoubleSide, //两面可见
                 shadowSide: THREE.BackSide,
                 map: this.option.landTexture,
-                roughness:0.2,
-                
+                roughness: 0.2,
+
             }));
             land.rotateX(-Math.PI / 2);
             land.receiveShadow = true;
@@ -148,7 +158,8 @@ class StaticObjectScence {
         // 加载HDR贴图
         if (this.option.HDRurl) {
             const texture = new EXRLoader().load(this.option.HDRurl, function (texture) {
-                texture.mapping = THREE.EquirectangularReflectionMapping;
+                texture.mapping = //THREE.EquirectangularReflectionMapping;
+                THREE.EquirectangularRefractionMapping ;
             });
             this.scene.background = texture;
             this.scene.environment = texture;
@@ -188,6 +199,8 @@ class StaticObjectScence {
                 // 接受投影
                 this.objectGroup.children[i].castShadow = true;
                 this.objectGroup.children[i].receiveShadow = true;
+                // 
+                this.objectGroup.children[i].material.envMap = this.scene.environment;
                 // 更新材质
                 this.objectGroup.children[i].material.needsUpdate = true;
 
@@ -227,24 +240,6 @@ class StaticObjectScence {
         // 设置dom标签层
         CSS2Element.classList.add("ui-layer");
         this.element.appendChild(CSS2Element);
-        // 设置相机控件轨道控制器OrbitControls
-        this.OrbitControl = new OrbitControls(this.camera, this.renderer.domElement);
-        // onresize 事件会在窗口被调整大小时发生
-        ((_this) => {
-            window.addEventListener("resize", function () {
-                // 重置渲染器输出画布canvas尺寸
-                _this.renderer.setSize(_this.element.clientWidth, _this.element.clientHeight);
-                _this.CSS2Renderer.setSize(_this.element.clientWidth, _this.element.clientHeight);
-                // 全屏情况下：设置观察范围长宽比aspect为窗口宽高比
-                _this.camera.aspect = _this.element.clientWidth / _this.element.clientHeight;
-                // 渲染器执行render方法的时候会读取相机对象的投影矩阵属性projectionMatrix
-                // 但是不会每渲染一帧，就通过相机的属性计算投影矩阵(节约计算资源)
-                // 如果相机的一些属性发生了变化，需要执行updateProjectionMatrix ()方法更新相机的投影矩阵
-                _this.camera.updateProjectionMatrix();
-                _this.width = _this.element.clientWidth;
-                _this.height = _this.element.clientHeight;
-            })
-        })(this);
 
     }
     initHelper() {
@@ -266,6 +261,25 @@ class StaticObjectScence {
 
         innergui.domElement.classList.add("gui");
         this.element.appendChild(innergui.domElement);
+
+        // 设置相机控件轨道控制器OrbitControls
+        this.OrbitControl = new OrbitControls(this.camera, this.renderer.domElement);
+        // onresize 事件会在窗口被调整大小时发生
+        ((_this) => {
+            window.addEventListener("resize", function () {
+                // 重置渲染器输出画布canvas尺寸
+                _this.renderer.setSize(_this.element.clientWidth, _this.element.clientHeight);
+                _this.CSS2Renderer.setSize(_this.element.clientWidth, _this.element.clientHeight);
+                // 全屏情况下：设置观察范围长宽比aspect为窗口宽高比
+                _this.camera.aspect = _this.element.clientWidth / _this.element.clientHeight;
+                // 渲染器执行render方法的时候会读取相机对象的投影矩阵属性projectionMatrix
+                // 但是不会每渲染一帧，就通过相机的属性计算投影矩阵(节约计算资源)
+                // 如果相机的一些属性发生了变化，需要执行updateProjectionMatrix ()方法更新相机的投影矩阵
+                _this.camera.updateProjectionMatrix();
+                _this.width = _this.element.clientWidth;
+                _this.height = _this.element.clientHeight;
+            })
+        })(this);
     }
     Antialias() {
         this.renderer.antialias = true;
